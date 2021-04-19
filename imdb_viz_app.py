@@ -85,9 +85,31 @@ app.layout = html.Div([
 
 
 @app.callback(
+    Output('dropdown-div', 'style'),
+    Input('dropdown-category', 'value')
+)
+def update_dropdown_sort(category_value):
+    if category_value in ['movies_count', 'tvshows_count']:
+        return {'display': 'none'}
+    else:
+        return {'width': '30%', 'display': 'inline-block'}
+
+
+# Update year list slider attributes
+@app.callback(
     Output('intermediate-value', 'children'),
     Input('dropdown-category', 'value'))
 def get_years(category_value):
+    if category_value in ['movies_count', 'tvshows_count']:
+        no_data = {
+            'min': 0,
+            'max': 0,
+            'marks': [0],
+            'value': 0
+        }
+
+        return json.dumps(no_data)
+
     years_list = list(db[category_value].distinct('startYear'))
     sliced_list = years_list[-25:]
     print(sliced_list)
@@ -100,18 +122,6 @@ def get_years(category_value):
     }
 
     return json.dumps(slider_data)
-
-
-@app.callback(
-    Output('dropdown-div', 'style'),
-    Input('dropdown-category', 'value')
-)
-def update_dropdown_sort(category_value):
-    if category_value in ['movies_count', 'tvshows_count']:
-        return {'display': 'none'}
-    else:
-        return {'width': '30%', 'display': 'inline-block'}
-
 
 @app.callback(
     Output('year-slider', 'marks'),
@@ -202,53 +212,76 @@ def update_slider(category_value):
      Input('year-slider', 'value')]
 )
 def update_figure(category_value, sort_value, options_value, selected_year):
-    year_query = {'startYear': str(selected_year)}
+
+    if category_value in ['movies_count', 'tvshows_count']:
+        df = get_dataframe(category_value, sort_value, options_value, selected_year)
+        fig = get_figure(df, category_value, options_value, selected_year)
+
+        return fig
+
+    elif category_value in ['top_budgets', 'top_revenues']:
+        df = get_dataframe(category_value, sort_value, options_value, selected_year)
+        fig = get_figure(df, category_value, int(options_value), selected_year)
+
+        return fig
+
+    else:
+        df = get_dataframe(category_value, sort_value, options_value, selected_year)
+        fig = get_figure(df, category_value, options_value, selected_year)
+
+        return fig
+
+
+def get_dataframe(category, sort_type, max_results, year):
+    year_query = {'startYear': str(year)}
     ratings_projection = {'_id': 0, 'primaryTitle': 1, 'averageRating': 1, 'numVotes': 1, 'totalRatings': 1}
     finance_projection = {'_id': 0, 'primaryTitle': 1, 'averageRating': 1, 'numVotes': 1, 'budget': 1, 'revenue': 1}
     count_projection = {'_id': 0, 'startYear': 1, 'count': 1}
 
-    graph_title = f'{category_dict[category_value]} of {selected_year}'
+    def get_items(projection, sort_relevance):
+        if sort_type == 'rating':
+            return db[category].find(year_query, projection).limit(int(max_results)).sort('averageRating', -1)
+        elif sort_type == 'votes':
+            return db[category].find(year_query, projection).limit(int(max_results)).sort('numVotes', -1)
+        else:
+            return db[category].find(year_query, projection).limit(int(max_results)).sort(sort_relevance, -1)
 
-    if category_value in ['movies_count', 'tvshows_count']:
-        title_counts = db['titles_count'].find({'titleType': title_values[category_value]}, count_projection).sort('startYear', 1)
-        df = pd.DataFrame(title_counts)
-        print(df.head())
-        fig = get_figure(df, options_value, category_value)
+    if category == 'top_movies' or category == 'top_tvshows':
+        items = get_items(ratings_projection, 'totalRatings')
 
-        return fig
-    elif category_value in ['top_budgets', 'top_revenues']:
-        top_items = db[category_value].find(year_query, finance_projection).limit(options_value).sort('revenue', -1)
+    elif category == 'top_budgets':
+        items = get_items(finance_projection, 'budget')
 
-        df = pd.DataFrame(list(top_items))
-        print(df.head())
+    elif category == 'top_revenues':
+        items = get_items(finance_projection, 'revenue')
+
+    else:
+        items = db['titles_count'].find({'titleType': title_values[category]}, count_projection).sort('startYear', 1)
+
+    return pd.DataFrame(items)
+
+
+def get_figure(df, category, option, year):
+    graph_title = f'{category_dict[category]} of {year}'
+
+    if category == 'top_movies' or category == 'top_tvshows':
+        fig = px.bar(df, x='primaryTitle', y='numVotes', color="averageRating", title=graph_title,
+                     color_continuous_scale='purples')
+
+    elif category == 'top_budgets':
+        fig = px.bar(df, x="primaryTitle", y="budget", color="averageRating", title=graph_title,
+                     color_continuous_scale='purples')
+
+    elif category == 'top_revenues':
         fig = px.bar(df, x="primaryTitle", y="revenue", color="averageRating", title=graph_title,
                      color_continuous_scale='purples')
-        fig.update_layout(height=500)
 
-        return fig
     else:
-        if sort_value == 'rating':
-            top_items = db[category_value].find(year_query, ratings_projection).limit(options_value).sort('averageRating', -1)
-        elif sort_value == 'votes':
-            top_items = db[category_value].find(year_query, ratings_projection).limit(options_value).sort('numVotes', -1)
-        else:
-            top_items = db[category_value].find(year_query, ratings_projection).limit(options_value).sort('totalRatings', -1)
+        if option == 'bar_graph':
+            fig = px.bar(df, x='startYear', y='count', title=category_dict[category])
+        elif option == 'line_plot':
+            fig = px.line(df, x='startYear', y='count', title=category_dict[category])
 
-        df = pd.DataFrame(list(top_items))
-        print(df.head())
-        title = f'{category_dict[category_value]} of {selected_year}'
-        fig = px.bar(df, x="primaryTitle", y="numVotes", color="averageRating", title=graph_title,
-                     color_continuous_scale='purples')
-        fig.update_layout(height=500)
-
-        return fig
-
-
-def get_figure(df, options_value, category_value):
-    if options_value == 'bar_graph':
-        fig = px.bar(df, x="startYear", y="count", title=category_dict[category_value])
-    elif options_value == 'line_plot':
-        fig = px.line(df, x="startYear", y="count", title=category_dict[category_value])
     fig.update_layout(height=500)
 
     return fig

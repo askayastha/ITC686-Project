@@ -6,6 +6,7 @@ import plotly.express as px
 import pandas as pd
 from dash.dependencies import Input, Output
 from collections import OrderedDict
+import json
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
@@ -18,10 +19,10 @@ print(connection.list_database_names())
 db = connection["imdb_database"]
 
 category_dict = OrderedDict({
-    'top_movies': 'Top Movies by Year',
-    'top_tvshows': 'Top TV Shows by Year',
-    'top_budgets': 'Top Movie Budgets by Year',
-    'top_revenues': 'Top Movie Revenues by Year',
+    'top_movies': 'Top Movies',
+    'top_tvshows': 'Top TV Shows',
+    'top_budgets': 'Top Movie Budgets',
+    'top_revenues': 'Top Movie Revenues',
     'movies_count': 'Number of Movies per Year',
     'tvshows_count': 'Number of TV Shows per Year',
     'budgets_max': 'Highest Budget per Year',
@@ -75,15 +76,30 @@ app.layout = html.Div([
         html.Div([
             dcc.Slider(
                 id='year-slider',
-                min=2000,
-                max=2021,
-                value=2021,
-                marks={str(year): str(year) for year in range(2000, 2022)},
                 step=None
             )
         ], id='slider-div')
     ], style={'margin-left': '10%', 'margin-right': '10%'}),
+    html.Div(id='intermediate-value', style={'display': 'none'})
 ])
+
+
+@app.callback(
+    Output('intermediate-value', 'children'),
+    Input('dropdown-category', 'value'))
+def get_years(category_value):
+    years_list = list(db[category_value].distinct('startYear'))
+    sliced_list = years_list[-25:]
+    print(sliced_list)
+
+    slider_data = {
+        'min': int(min(sliced_list)),
+        'max': int(max(sliced_list)),
+        'marks': sliced_list,
+        'value': int(max(sliced_list))
+    }
+
+    return json.dumps(slider_data)
 
 
 @app.callback(
@@ -95,6 +111,38 @@ def update_dropdown_sort(category_value):
         return {'display': 'none'}
     else:
         return {'width': '30%', 'display': 'inline-block'}
+
+
+@app.callback(
+    Output('year-slider', 'marks'),
+    Input('intermediate-value', 'children'))
+def update_year_slider_marks(slider_json):
+    slider_data = json.loads(slider_json)
+    return {str(year): str(year) for year in slider_data['marks']}
+
+
+@app.callback(
+    Output('year-slider', 'min'),
+    Input('intermediate-value', 'children'))
+def update_year_slider_min(slider_json):
+    slider_data = json.loads(slider_json)
+    return slider_data['min']
+
+
+@app.callback(
+    Output('year-slider', 'max'),
+    Input('intermediate-value', 'children'))
+def update_year_slider_max(slider_json):
+    slider_data = json.loads(slider_json)
+    return slider_data['max']
+
+
+@app.callback(
+    Output('year-slider', 'value'),
+    Input('intermediate-value', 'children'))
+def update_year_slider_value(slider_json):
+    slider_data = json.loads(slider_json)
+    return slider_data['max']
 
 
 @app.callback(
@@ -122,6 +170,7 @@ def update_radio_options(category_value):
     Input('radio-options', 'options'))
 def update_radio_value(available_options):
     return available_options[0]['value']
+
 
 @app.callback(
     Output('radio-label', 'children'),
@@ -158,14 +207,22 @@ def update_figure(category_value, sort_value, options_value, selected_year):
     finance_projection = {'_id': 0, 'primaryTitle': 1, 'averageRating': 1, 'numVotes': 1, 'budget': 1, 'revenue': 1}
     count_projection = {'_id': 0, 'startYear': 1, 'count': 1}
 
+    graph_title = f'{category_dict[category_value]} of {selected_year}'
+
     if category_value in ['movies_count', 'tvshows_count']:
         title_counts = db['titles_count'].find({'titleType': title_values[category_value]}, count_projection).sort('startYear', 1)
         df = pd.DataFrame(title_counts)
         print(df.head())
-        if options_value == 'bar_graph':
-            fig = px.bar(df, x="startYear", y="count", title=category_dict[category_value])
-        elif options_value == 'line_plot':
-            fig = px.line(df, x="startYear", y="count", title=category_dict[category_value])
+        fig = get_figure(df, options_value, category_value)
+
+        return fig
+    elif category_value in ['top_budgets', 'top_revenues']:
+        top_items = db[category_value].find(year_query, finance_projection).limit(options_value).sort('revenue', -1)
+
+        df = pd.DataFrame(list(top_items))
+        print(df.head())
+        fig = px.bar(df, x="primaryTitle", y="revenue", color="averageRating", title=graph_title,
+                     color_continuous_scale='purples')
         fig.update_layout(height=500)
 
         return fig
@@ -175,18 +232,26 @@ def update_figure(category_value, sort_value, options_value, selected_year):
         elif sort_value == 'votes':
             top_items = db[category_value].find(year_query, ratings_projection).limit(options_value).sort('numVotes', -1)
         else:
-            if category_value in ['top_budgets', 'top_revenues']:
-                top_items = db[category_value].find(year_query, finance_projection).limit(options_value).sort('budget', -1)
-            else:
-                top_items = db[category_value].find(year_query, ratings_projection).limit(options_value).sort('totalRatings', -1)
+            top_items = db[category_value].find(year_query, ratings_projection).limit(options_value).sort('totalRatings', -1)
 
         df = pd.DataFrame(list(top_items))
         print(df.head())
-        fig = px.bar(df, x="primaryTitle", y="numVotes", color="averageRating", title=category_dict[category_value],
+        title = f'{category_dict[category_value]} of {selected_year}'
+        fig = px.bar(df, x="primaryTitle", y="numVotes", color="averageRating", title=graph_title,
                      color_continuous_scale='purples')
         fig.update_layout(height=500)
 
         return fig
+
+
+def get_figure(df, options_value, category_value):
+    if options_value == 'bar_graph':
+        fig = px.bar(df, x="startYear", y="count", title=category_dict[category_value])
+    elif options_value == 'line_plot':
+        fig = px.line(df, x="startYear", y="count", title=category_dict[category_value])
+    fig.update_layout(height=500)
+
+    return fig
 
 
 if __name__ == '__main__':

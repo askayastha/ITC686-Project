@@ -13,7 +13,7 @@ external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
-no_data_graph = {
+NO_DATA_GRAPH = {
     'data': [],
     'layout': go.Layout(
         title='NO DATA!',
@@ -233,7 +233,7 @@ def update_figure(category_value, sort_value, options_value, selected_year):
 
     elif category_value in ['top_budgets', 'top_revenues']:
         df = get_dataframe(category_value, sort_value, options_value, selected_year)
-        fig = get_figure(df, category_value, int(options_value), selected_year)
+        fig = get_figure(df, category_value, options_value, selected_year)
 
     else:
         df = get_dataframe(category_value, sort_value, options_value, selected_year)
@@ -250,11 +250,11 @@ def get_dataframe(category, sort_type, max_results, year):
 
     def get_items(projection, sort_relevance):
         if sort_type == 'rating':
-            return db[category].find(year_query, projection).limit(int(max_results)).sort('averageRating', -1)
+            return db[category].find(year_query, projection).limit(max_results).sort('averageRating', -1)
         elif sort_type == 'votes':
-            return db[category].find(year_query, projection).limit(int(max_results)).sort('numVotes', -1)
+            return db[category].find(year_query, projection).limit(max_results).sort('numVotes', -1)
         else:
-            return db[category].find(year_query, projection).limit(int(max_results)).sort(sort_relevance, -1)
+            return db[category].find(year_query, projection).limit(max_results).sort(sort_relevance, -1)
 
     if category == 'top_movies' or category == 'top_tvshows':
         items = get_items(ratings_projection, 'totalRatings')
@@ -273,7 +273,7 @@ def get_dataframe(category, sort_type, max_results, year):
 
 def get_figure(df, category, option, year):
     if df.empty:
-        return no_data_graph
+        return NO_DATA_GRAPH
 
     graph_title = f'{category_dict[category]} of {year}'
 
@@ -297,7 +297,10 @@ def get_figure(df, category, option, year):
         elif option == 'line_plot':
             fig = px.line(df, x='startYear', y='count', title=category_dict[category])
 
-    fig.update_layout(height=500)
+    try:
+        fig.update_layout(height=500)
+    except UnboundLocalError:
+        return NO_DATA_GRAPH
 
     return fig
 

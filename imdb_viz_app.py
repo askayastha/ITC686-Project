@@ -7,10 +7,23 @@ import pandas as pd
 from dash.dependencies import Input, Output
 from collections import OrderedDict
 import json
+import plotly.graph_objs as go
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+
+no_data_graph = {
+    'data': [],
+    'layout': go.Layout(
+        title='NO DATA!',
+        xaxis={'type': 'linear', 'title': ''},
+        yaxis={'title': ''},
+        margin={'l': 80, 'b': 70, 't': 50, 'r': 20},
+        legend={'x': 0, 'y': 1},
+        hovermode='closest'
+    )
+}
 
 connection = Connect.get_connection()
 print(connection.list_database_names())
@@ -123,6 +136,7 @@ def get_years(category_value):
 
     return json.dumps(slider_data)
 
+
 @app.callback(
     Output('year-slider', 'marks'),
     Input('intermediate-value', 'children'))
@@ -217,19 +231,15 @@ def update_figure(category_value, sort_value, options_value, selected_year):
         df = get_dataframe(category_value, sort_value, options_value, selected_year)
         fig = get_figure(df, category_value, options_value, selected_year)
 
-        return fig
-
     elif category_value in ['top_budgets', 'top_revenues']:
         df = get_dataframe(category_value, sort_value, options_value, selected_year)
         fig = get_figure(df, category_value, int(options_value), selected_year)
-
-        return fig
 
     else:
         df = get_dataframe(category_value, sort_value, options_value, selected_year)
         fig = get_figure(df, category_value, options_value, selected_year)
 
-        return fig
+    return fig
 
 
 def get_dataframe(category, sort_type, max_results, year):
@@ -262,13 +272,18 @@ def get_dataframe(category, sort_type, max_results, year):
 
 
 def get_figure(df, category, option, year):
+    if df.empty:
+        return no_data_graph
+
     graph_title = f'{category_dict[category]} of {year}'
 
     if category == 'top_movies' or category == 'top_tvshows':
+        print(df.head())
         fig = px.bar(df, x='primaryTitle', y='numVotes', color="averageRating", title=graph_title,
                      color_continuous_scale='purples')
 
     elif category == 'top_budgets':
+        print(df.head())
         fig = px.bar(df, x="primaryTitle", y="budget", color="averageRating", title=graph_title,
                      color_continuous_scale='purples')
 

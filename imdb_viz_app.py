@@ -17,7 +17,7 @@ server = app.server
 NO_DATA_GRAPH = {
     'data': [],
     'layout': go.Layout(
-        title='NO DATA!',
+        # title='NO DATA!',
         xaxis={'type': 'linear', 'title': ''},
         yaxis={'title': ''},
         margin={'l': 80, 'b': 70, 't': 50, 'r': 20},
@@ -37,8 +37,8 @@ category_dict = OrderedDict({
     'top_tvshows': 'Top TV Shows',
     'top_budgets': 'Top Movie Budgets',
     'top_revenues': 'Top Movie Revenues',
-    'top_budgets_revenues': 'Top Movie Budgets with Revenues',
-    'top_revenues_budgets': 'Top Movie Revenues with Budgets',
+    'top_budgets_revenues': 'Top Movie Budgets and their Revenues',
+    'top_revenues_budgets': 'Top Movie Revenues and their Budgets',
     'movies_count': 'Number of Movies per Year',
     'tvshows_count': 'Number of TV Shows per Year',
     'budgets_max': 'Highest Budget per Year',
@@ -78,7 +78,7 @@ app.layout = html.Div([
                 options=[{'label': val, 'value': key} for key, val in category_dict.items()],
                 value=list(category_dict.keys())[0]
             )
-        ], style={'width': '30%', 'display': 'inline-block'}),
+        ], style={'width': '30%', 'display': 'inline-block', 'marginRight': '5%'}),
         html.Div([
             html.Label('Sort By', style={'fontWeight': '600'}),
             dcc.Dropdown(
@@ -97,8 +97,6 @@ app.layout = html.Div([
             html.Label(id='radio-label', style={'fontWeight': '600'}),
             dcc.RadioItems(
                 id='radio-options',
-                # options=[{'label': f'Top {i}', 'value': i} for i in [10, 20]],
-                # value=10,
                 inputStyle={'marginRight': '10px'},
                 labelStyle={'marginRight': '20px', 'display': 'inline-block'}
             )
@@ -166,7 +164,7 @@ def get_years(category_value):
     Input('intermediate-value', 'children'))
 def update_year_slider_marks(slider_json):
     slider_data = json.loads(slider_json)
-    return {str(year): str(year) for year in slider_data['marks']}
+    return {str(year): {'label': str(year), 'style': {'font-weight': 'bold'}} for year in slider_data['marks']}
 
 
 @app.callback(
@@ -275,7 +273,11 @@ def update_figure(category_value, sort_value, options_value, selected_year):
 
 
 def get_dataframe(category, sort_type, max_results, year):
-    category_db = category_dbs[category]
+    try:
+        category_db = category_dbs[category]
+    except KeyError:
+        return pd.DataFrame()
+
     year_query = {'startYear': str(year)}
     ratings_projection = {'_id': 0, 'primaryTitle': 1, 'averageRating': 1, 'numVotes': 1, 'totalRatings': 1}
     finance_projection = {'_id': 0, 'primaryTitle': 1, 'averageRating': 1, 'numVotes': 1, 'budget': 1, 'revenue': 1}

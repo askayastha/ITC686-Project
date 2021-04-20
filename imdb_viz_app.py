@@ -8,7 +8,6 @@ from dash.dependencies import Input, Output
 from collections import OrderedDict
 import json
 import plotly.graph_objs as go
-import textwrap
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
@@ -112,7 +111,10 @@ app.layout = html.Div([
                 id='year-slider',
                 step=None
             )
-        ], id='slider-div')
+        ], id='slider-div'),
+
+        html.Br(),
+        html.P("© 2021 Ashish Kayastha. All rights reserved.", style={'textAlign': 'center'})
     ], style={'margin-left': '10%', 'margin-right': '10%'}),
     html.Div(id='intermediate-value', style={'display': 'none'})
 ])

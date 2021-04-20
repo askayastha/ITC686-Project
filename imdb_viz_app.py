@@ -8,6 +8,7 @@ from dash.dependencies import Input, Output
 from collections import OrderedDict
 import json
 import plotly.graph_objs as go
+import textwrap
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
@@ -52,12 +53,18 @@ category_dbs = {
     'top_budgets_revenues': 'top_budgets',
     'top_revenues_budgets': 'top_revenues',
     'movies_count': 'titles_count',
-    'tvshows_count': 'titles_count'
+    'tvshows_count': 'titles_count',
+    'budgets_max': 'top_budgets',
+    'revenues_max': 'top_revenues'
 }
 
-title_values = {
+category_fields = {
     'movies_count': 'movie',
-    'tvshows_count': 'tvSeries'
+    'tvshows_count': 'tvSeries',
+    'top_budgets': 'budget',
+    'top_revenues': 'revenue',
+    'budgets_max': 'max_budget',
+    'revenues_max': 'max_revenue'
 }
 
 app.layout = html.Div([
@@ -115,7 +122,7 @@ app.layout = html.Div([
     Input('dropdown-category', 'value')
 )
 def update_dropdown_sort(category_value):
-    if category_value in ['movies_count', 'tvshows_count']:
+    if category_value in ['movies_count', 'tvshows_count', 'budgets_max', 'revenues_max']:
         return {'display': 'none'}
     else:
         return {'width': '30%', 'display': 'inline-block'}
@@ -126,7 +133,7 @@ def update_dropdown_sort(category_value):
     Output('intermediate-value', 'children'),
     Input('dropdown-category', 'value'))
 def get_years(category_value):
-    if category_value in ['movies_count', 'tvshows_count']:
+    if category_value in ['movies_count', 'tvshows_count', 'budgets_max', 'revenues_max']:
         no_data = {
             'min': 0,
             'max': 0,
@@ -197,7 +204,7 @@ def update_radio_options(category_value):
         'line_plot': 'Line Plot'
     })
 
-    if category_value in ['movies_count', 'tvshows_count']:
+    if category_value in ['movies_count', 'tvshows_count', 'budgets_max', 'revenues_max']:
         return [{'label': val, 'value': key} for key, val in graph_dict.items()]
     else:
         return [{'label': val, 'value': key} for key, val in topk_dict.items()]
@@ -215,7 +222,7 @@ def update_radio_value(available_options):
     Input('dropdown-category', 'value')
 )
 def update_radio_label(category_value):
-    if category_value in ['movies_count', 'tvshows_count']:
+    if category_value in ['movies_count', 'tvshows_count', 'budgets_max', 'revenues_max']:
         return 'Graph Type'
     else:
         return 'Show'
@@ -226,7 +233,7 @@ def update_radio_label(category_value):
     Input('dropdown-category', 'value')
 )
 def update_slider(category_value):
-    if category_value in ['movies_count', 'tvshows_count']:
+    if category_value in ['movies_count', 'tvshows_count', 'budgets_max', 'revenues_max']:
         return {'display': 'none'}
     else:
         return {}
@@ -258,6 +265,7 @@ def update_figure(category_value, sort_value, options_value, selected_year):
     #     fig = get_figure(df, category_value, options_value, selected_year)
 
     df = get_dataframe(category_value, sort_value, options_value, selected_year)
+    print(df.head())
     fig = get_figure(df, category_value, options_value, selected_year)
 
     return fig
@@ -269,6 +277,14 @@ def get_dataframe(category, sort_type, max_results, year):
     ratings_projection = {'_id': 0, 'primaryTitle': 1, 'averageRating': 1, 'numVotes': 1, 'totalRatings': 1}
     finance_projection = {'_id': 0, 'primaryTitle': 1, 'averageRating': 1, 'numVotes': 1, 'budget': 1, 'revenue': 1}
     count_projection = {'_id': 0, 'startYear': 1, 'count': 1}
+    highest_budgets_pipeline = [
+        {'$group': {'_id': "$startYear", 'max_budget': {'$max': '$budget'}}},
+        {'$sort': {'_id': 1}}
+    ]
+    highest_revenues_pipeline = [
+        {'$group': {'_id': "$startYear", 'max_revenue': {'$max': '$revenue'}}},
+        {'$sort': {'_id': 1}}
+    ]
 
     def get_items(projection, sort_relevance):
         try:
@@ -290,8 +306,14 @@ def get_dataframe(category, sort_type, max_results, year):
     elif category == 'top_revenues' or category == 'top_revenues_budgets':
         items = get_items(finance_projection, 'revenue')
 
+    elif category == 'budgets_max':
+        items = db[category_db].aggregate(highest_budgets_pipeline)
+
+    elif category == 'revenues_max':
+        items = db[category_db].aggregate(highest_revenues_pipeline)
+
     else:
-        items = db[category_db].find({'titleType': title_values[category]}, count_projection).sort('startYear', 1)
+        items = db[category_db].find({'titleType': category_fields[category]}, count_projection).sort('startYear', 1)
 
     return pd.DataFrame(items)
 
@@ -313,19 +335,8 @@ def get_figure(df, category, option, year):
                           yaxis_title='Number of Votes',
                           coloraxis_colorbar_title='Average Rating')
 
-    elif category == 'top_budgets':
-        fig = px.bar(df, x="primaryTitle", y="budget", text='budget', color="averageRating",
-                     color_continuous_scale='blues')
-        fig.update_traces(texttemplate='%{text:.2s}', textposition='outside')
-
-        # Edit the layout
-        fig.update_layout(title_text=graph_title,
-                          xaxis_title='Movie',
-                          yaxis_title='Dollars ($)',
-                          coloraxis_colorbar_title='Average Rating')
-
-    elif category == 'top_revenues':
-        fig = px.bar(df, x="primaryTitle", y="revenue", text='revenue', color="averageRating",
+    elif category == 'top_budgets' or category == 'top_revenues':
+        fig = px.bar(df, x="primaryTitle", y=category_fields[category], text=category_fields[category], color="averageRating",
                      color_continuous_scale='blues')
         fig.update_traces(texttemplate='%{text:.2s}', textposition='outside')
 
@@ -358,11 +369,26 @@ def get_figure(df, category, option, year):
                           yaxis_title='Dollars ($)',
                           barmode='group')
 
+    elif category == 'budgets_max' or category == 'revenues_max':
+        if option == 'bar_graph':
+            fig = px.bar(df, x='_id', y=category_fields[category])
+        elif option == 'line_plot':
+            fig = px.line(df, x='_id', y=category_fields[category])
+
+        # Edit the layout
+        try:
+            fig.update_traces(marker_color='#3366CC')
+            fig.update_layout(title_text=category_dict[category],
+                              xaxis_title='Year',
+                              yaxis_title='Dollars ($)')
+        except UnboundLocalError:
+            return NO_DATA_GRAPH
+
     else:
         if option == 'bar_graph':
             fig = px.bar(df, x='startYear', y='count')
         elif option == 'line_plot':
-            fig = px.line(df, x='startYear', y='count', title=category_dict[category])
+            fig = px.line(df, x='startYear', y='count')
 
         # Edit the layout
         try:

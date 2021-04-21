@@ -84,11 +84,11 @@ app.layout = html.Div([
             dcc.Dropdown(
                 id='dropdown-sort',
                 options=[
-                    {'label': 'Relevance: High to Low', 'value': 'relevance'},
+                    {'label': 'Popularity: High to Low', 'value': 'popularity'},
                     {'label': 'Rating: High to Low', 'value': 'rating'},
                     {'label': 'Votes: High to Low', 'value': 'votes'}
                 ],
-                value='relevance',
+                value='popularity',
                 searchable=False,
                 clearable=False
             )
@@ -248,23 +248,6 @@ def update_slider(category_value):
      Input('year-slider', 'value')]
 )
 def update_figure(category_value, sort_value, options_value, selected_year):
-
-    # if category_value in ['movies_count', 'tvshows_count']:
-    #     df = get_dataframe(category_value, sort_value, options_value, selected_year)
-    #     fig = get_figure(df, category_value, options_value, selected_year)
-    #
-    # elif category_value in ['top_budgets', 'top_revenues']:
-    #     df = get_dataframe(category_value, sort_value, options_value, selected_year)
-    #     fig = get_figure(df, category_value, options_value, selected_year)
-    #
-    # elif category_value in ['top_budgets_revenues', 'top_revenues_budgets']:
-    #     df = get_dataframe(category_value, sort_value, options_value, selected_year)
-    #     fig = get_figure(df, category_value, options_value, selected_year)
-    #
-    # else:
-    #     df = get_dataframe(category_value, sort_value, options_value, selected_year)
-    #     fig = get_figure(df, category_value, options_value, selected_year)
-
     df = get_dataframe(category_value, sort_value, options_value, selected_year)
     print(df.head())
     fig = get_figure(df, category_value, options_value, selected_year)
@@ -291,14 +274,14 @@ def get_dataframe(category, sort_type, max_results, year):
         {'$sort': {'_id': 1}}
     ]
 
-    def get_items(projection, sort_relevance):
+    def get_items(projection, sort_field):
         try:
             if sort_type == 'rating':
                 return db[category_db].find(year_query, projection).limit(max_results).sort('averageRating', -1)
             elif sort_type == 'votes':
                 return db[category_db].find(year_query, projection).limit(max_results).sort('numVotes', -1)
             else:
-                return db[category_db].find(year_query, projection).limit(max_results).sort(sort_relevance, -1)
+                return db[category_db].find(year_query, projection).limit(max_results).sort(sort_field, -1)
         except TypeError:
             return pd.DataFrame()
 

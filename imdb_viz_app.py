@@ -58,7 +58,9 @@ category_fields = {
     'top_budgets': 'budget',
     'top_revenues': 'revenue',
     'budgets_max': 'max_budget',
-    'revenues_max': 'max_revenue'
+    'revenues_max': 'max_revenue',
+    'top_movies': 'Movie',
+    'top_tvshows': 'TV Show'
 }
 
 app.layout = html.Div([
@@ -351,7 +353,7 @@ def get_figure(df, category, option, year):
 
         # Edit the layout
         fig.update_layout(title_text=graph_title,
-                          xaxis_title='Movie',
+                          xaxis_title=category_fields[category],
                           yaxis_title='Number of Votes',
                           coloraxis_colorbar_title='Average Rating')
 

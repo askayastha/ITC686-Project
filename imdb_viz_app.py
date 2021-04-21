@@ -4,7 +4,7 @@ import dash_core_components as dcc
 import dash_html_components as html
 import plotly.express as px
 import pandas as pd
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 from collections import OrderedDict
 import json
 import plotly.graph_objs as go
@@ -103,7 +103,8 @@ app.layout = html.Div([
         html.Br(),
         html.P("© 2021 Ashish Kayastha. All rights reserved.", style={'textAlign': 'center'})
     ], style={'margin-left': '10%', 'margin-right': '10%'}),
-    html.Div(id='intermediate-value', style={'display': 'none'})
+    html.Div(id='intermediate-value', style={'display': 'none'}),
+    dcc.Store(id='memory')
 ])
 
 
@@ -145,6 +146,19 @@ def update_sort_options(category_value):
 
 # Year Slider
 @app.callback(
+    Output('memory', 'data'),
+    Input('year-slider', 'value'),
+    State('memory', 'data')
+)
+def save_year_value(year_value, data):
+    # Give a default data dict with 0 if there's no data.
+    data = data or {'year': 0}
+    data['year'] = year_value
+
+    return data
+
+
+@app.callback(
     Output('intermediate-value', 'children'),
     Input('dropdown-category', 'value')
 )
@@ -172,7 +186,7 @@ def get_years(category_value):
 )
 def update_year_slider_marks(slider_json):
     slider_data = json.loads(slider_json)
-    return {str(year): {'label': str(year), 'style': {'font-weight': 'bold'}} for year in slider_data['marks']}
+    return {int(year): {'label': year, 'style': {'font-weight': 'bold'}} for year in slider_data['marks']}
 
 
 @app.callback(
@@ -195,11 +209,16 @@ def update_year_slider_max(slider_json):
 
 @app.callback(
     Output('year-slider', 'value'),
-    Input('intermediate-value', 'children')
+    Input('intermediate-value', 'children'),
+    State('memory', 'data')
 )
-def update_year_slider_value(slider_json):
+def update_year_slider_value(slider_json, data):
     slider_data = json.loads(slider_json)
-    return slider_data['max']
+
+    if data is not None and str(data['year']) in slider_data['marks']:
+        return data['year']
+    else:
+        return slider_data['max']
 
 
 @app.callback(

@@ -17,18 +17,11 @@ server = app.server
 
 NO_DATA_GRAPH = {
     'data': [],
-    'layout': go.Layout(
-        # title='NO DATA!',
-        xaxis={'type': 'linear', 'title': ''},
-        yaxis={'title': ''},
-        margin={'l': 80, 'b': 70, 't': 50, 'r': 20},
-        legend={'x': 0, 'y': 1},
-        hovermode='closest'
-    )
+    'layout': go.Layout()
 }
 
 connection = Connect.get_connection()
-print(connection.list_database_names())
+print("Databases:", connection.list_database_names())
 
 # creating or accessing a new database
 db = connection["imdb_database"]
@@ -157,14 +150,7 @@ def update_sort_options(category_value):
 )
 def get_years(category_value):
     if category_value in ['movies_count', 'tvshows_count', 'budgets_max', 'revenues_max']:
-        no_data = {
-            'min': 0,
-            'max': 0,
-            'marks': [0],
-            'value': 0
-        }
-
-        return json.dumps(no_data)
+        raise PreventUpdate
 
     category_db = category_dbs[category_value]
     years_list = list(db[category_db].distinct('startYear'))
@@ -174,8 +160,7 @@ def get_years(category_value):
     slider_data = {
         'min': int(min(sliced_list)),
         'max': int(max(sliced_list)),
-        'marks': sliced_list,
-        'value': int(max(sliced_list))
+        'marks': sliced_list
     }
 
     return json.dumps(slider_data)

@@ -8,6 +8,7 @@ from dash.dependencies import Input, Output
 from collections import OrderedDict
 import json
 import plotly.graph_objs as go
+from dash.exceptions import PreventUpdate
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
@@ -83,12 +84,7 @@ app.layout = html.Div([
             html.Label('Sort By', style={'fontWeight': '600'}),
             dcc.Dropdown(
                 id='dropdown-sort',
-                options=[
-                    {'label': 'Popularity: High to Low', 'value': 'popularity'},
-                    {'label': 'Rating: High to Low', 'value': 'rating'},
-                    {'label': 'Votes: High to Low', 'value': 'votes'}
-                ],
-                value='popularity',
+                value='relevance',
                 searchable=False,
                 clearable=False
             )
@@ -118,6 +114,7 @@ app.layout = html.Div([
 ])
 
 
+# Dropdown Sort
 @app.callback(
     Output('dropdown-div', 'style'),
     Input('dropdown-category', 'value')
@@ -129,10 +126,35 @@ def update_dropdown_sort(category_value):
         return {'width': '30%', 'display': 'inline-block'}
 
 
-# Update year list slider attributes
+@app.callback(
+    Output('dropdown-sort', 'options'),
+    Input('dropdown-category', 'value'))
+def update_sort_options(category_value):
+    titles_options = OrderedDict({
+        'relevance': 'Popularity: High to Low',
+        'rating': 'Rating: High to Low',
+        'votes': 'Votes: High to Low'
+    })
+
+    finance_options = OrderedDict({
+        'relevance': 'Dollars: High to Low',
+        'rating': 'Rating: High to Low',
+        'votes': 'Votes: High to Low'
+    })
+
+    if category_value in ['top_movies', 'top_tvshows']:
+        return [{'label': val, 'value': key} for key, val in titles_options.items()]
+    elif category_value in ['top_budgets', 'top_revenues', 'top_budgets_revenues', 'top_revenues_budgets']:
+        return [{'label': val, 'value': key} for key, val in finance_options.items()]
+    else:
+        raise PreventUpdate
+
+
+# Year Slider
 @app.callback(
     Output('intermediate-value', 'children'),
-    Input('dropdown-category', 'value'))
+    Input('dropdown-category', 'value')
+)
 def get_years(category_value):
     if category_value in ['movies_count', 'tvshows_count', 'budgets_max', 'revenues_max']:
         no_data = {
@@ -161,7 +183,8 @@ def get_years(category_value):
 
 @app.callback(
     Output('year-slider', 'marks'),
-    Input('intermediate-value', 'children'))
+    Input('intermediate-value', 'children')
+)
 def update_year_slider_marks(slider_json):
     slider_data = json.loads(slider_json)
     return {str(year): {'label': str(year), 'style': {'font-weight': 'bold'}} for year in slider_data['marks']}
@@ -169,7 +192,8 @@ def update_year_slider_marks(slider_json):
 
 @app.callback(
     Output('year-slider', 'min'),
-    Input('intermediate-value', 'children'))
+    Input('intermediate-value', 'children')
+)
 def update_year_slider_min(slider_json):
     slider_data = json.loads(slider_json)
     return slider_data['min']
@@ -177,7 +201,8 @@ def update_year_slider_min(slider_json):
 
 @app.callback(
     Output('year-slider', 'max'),
-    Input('intermediate-value', 'children'))
+    Input('intermediate-value', 'children')
+)
 def update_year_slider_max(slider_json):
     slider_data = json.loads(slider_json)
     return slider_data['max']
@@ -185,7 +210,8 @@ def update_year_slider_max(slider_json):
 
 @app.callback(
     Output('year-slider', 'value'),
-    Input('intermediate-value', 'children'))
+    Input('intermediate-value', 'children')
+)
 def update_year_slider_value(slider_json):
     slider_data = json.loads(slider_json)
     return slider_data['max']
@@ -193,7 +219,8 @@ def update_year_slider_value(slider_json):
 
 @app.callback(
     Output('radio-options', 'options'),
-    Input('dropdown-category', 'value'))
+    Input('dropdown-category', 'value')
+)
 def update_radio_options(category_value):
     topk_dict = OrderedDict({
         10: 'Top 10',
@@ -213,7 +240,8 @@ def update_radio_options(category_value):
 
 @app.callback(
     Output('radio-options', 'value'),
-    Input('radio-options', 'options'))
+    Input('radio-options', 'options')
+)
 def update_radio_value(available_options):
     return available_options[0]['value']
 

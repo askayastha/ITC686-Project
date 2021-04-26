@@ -65,7 +65,7 @@ category_fields = {
 
 app.layout = html.Div([
     html.Div([
-        html.H3('IMDB Movie Explorer', style={'textAlign': 'center', 'fontWeight': '600'}),
+        html.H3('IMDb Movie Explorer', style={'textAlign': 'center', 'fontWeight': '600'}),
 
         html.Div([
             html.Label('Select Chart', style={'fontWeight': '600'}),

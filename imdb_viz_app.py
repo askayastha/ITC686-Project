@@ -1,14 +1,15 @@
-from connect import Connect
+from collections import OrderedDict
 import dash
 import dash_core_components as dcc
-import dash_html_components as html
-import plotly.express as px
-import pandas as pd
 from dash.dependencies import Input, Output, State
-from collections import OrderedDict
-import json
-import plotly.graph_objs as go
 from dash.exceptions import PreventUpdate
+import dash_html_components as html
+import json
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objs as go
+
+from connect import Connect
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
@@ -35,8 +36,8 @@ category_dict = OrderedDict({
     'top_revenues_budgets': 'Top Movie Revenues and their Budgets',
     'movies_count': 'Number of Movies per Year',
     'tvshows_count': 'Number of TV Shows per Year',
-    'budgets_max': 'Highest Budget per Year',
-    'revenues_max': 'Highest Revenue per Year'
+    'budgets_max': 'Highest Movie Budget per Year',
+    'revenues_max': 'Highest Movie Revenue per Year'
 })
 
 category_dbs = {
